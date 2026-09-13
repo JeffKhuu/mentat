@@ -1,6 +1,6 @@
-mod parser;
-mod mathematics;
-mod evaluation;
+pub mod evaluation;
+pub mod mathematics;
+pub mod parser;
 
 #[cfg(test)]
 mod tests {}

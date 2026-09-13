@@ -1,3 +1,5 @@
+use std::fmt::{Display, write};
+
 use crate::{mathematics::symbol::Symbol, parser::numerical_string::NumericalString};
 
 /**
@@ -27,6 +29,48 @@ pub enum Expr {
 
     // Functional Expression
     Call { function: Symbol, args: Vec<Expr> },
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expr::Integer(n) => write!(f, "{n}"),
+            Expr::Real(n) => write!(f, "{n}"),
+            Expr::Add(exprs) => {
+                let s = exprs
+                    .iter()
+                    .map(|expr| expr.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" + ");
+                write!(f, "({s})")
+            }
+            Expr::Mul(exprs) => {
+                let s = exprs
+                    .iter()
+                    .map(|expr| expr.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" * ");
+                write!(f, "({s})")
+            }
+            Expr::Pow(expr, expr1) => {
+                write!(f, "{expr}^{expr1}")
+            }
+            Expr::Neg(expr) => {
+                write!(f, "-{expr}")
+            }
+            Expr::Call { function, args } => {
+                if args.len() == 0 {
+                    return write!(f, "{function}");
+                }
+                let s = args
+                    .iter()
+                    .map(|expr| expr.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{function}({s})")
+            }
+        }
+    }
 }
 
 impl From<&NumericalString> for Expr {
