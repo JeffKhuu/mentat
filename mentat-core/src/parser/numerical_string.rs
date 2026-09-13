@@ -1,3 +1,5 @@
+use std::num::{ParseFloatError, ParseIntError};
+
 use regex::Regex;
 
 /// NumericalString is a string that can only represent strings that are valid numbers.
@@ -29,6 +31,16 @@ impl NumericalString {
             return Some(NumericalString(s.to_string()));
         }
         return None;
+    }
+    pub(crate) fn is_integer(&self) -> bool {
+        !self.0.contains(".")
+    }
+
+    pub(crate) fn to_integer(&self) -> Result<u64, ParseIntError> {
+        self.0.parse::<u64>()
+    }
+    pub(crate) fn to_float(&self) -> Result<f64, ParseFloatError> {
+        self.0.parse::<f64>()
     }
 }
 

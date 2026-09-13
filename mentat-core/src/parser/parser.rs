@@ -3,9 +3,14 @@ The parser should take as input an iterable collection of tokens and return the
 abstract syntax tree as a valid math expression if the tokens represent a valid expression.
 */
 
+use std::collections::VecDeque;
+
 use thiserror::Error;
 
-use crate::{mathematics::expression::Expr, parser::lexer::*};
+use crate::{
+    mathematics::{expression::Expr, symbol::Symbol},
+    parser::lexer::*,
+};
 
 #[derive(Debug, Error)]
 pub enum ParseError {
@@ -19,10 +24,8 @@ pub enum ParseError {
     UnexpectedComma,
     #[error("Mismatched Parentheses.")]
     MismatchedParentheses,
-}
-
-pub(crate) fn parse_from_tokens(tokens: impl Iterator<Item = Token>) -> Result<Expr, ParseError> {
-    todo!()
+    #[error("Missing operand during parse.")]
+    MissingOperand,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,30 +51,39 @@ enum PostfixToken {
 }
 
 #[derive(Debug, PartialEq)]
-struct PostfixExpression(Vec<PostfixToken>);
+struct PostfixExpression(VecDeque<PostfixToken>);
 
 fn shunting_yard(
     tokens: &mut impl Iterator<Item = Token>,
 ) -> Result<PostfixExpression, ParseError> {
     let mut tokens = tokens.peekable();
 
-    let mut output = Vec::new();
+    let mut output = VecDeque::new();
     let mut operator_stack: Vec<OperableToken> = Vec::new();
 
     let mut state = ParserState::ExpectOperand;
 
     while let Some(token) = tokens.next() {
         match token {
-            // Operands
+            //
+            // ---------------------------------------------------------
+            // Number
+            // ---------------------------------------------------------
+            //
             Token::Number(_) => {
                 if state != ParserState::ExpectOperand {
                     return Err(ParseError::UnexpectedToken(token));
                 }
 
-                output.push(PostfixToken::Operand(token));
+                output.push_back(PostfixToken::Operand(token));
                 state = ParserState::ExpectOperator;
             }
 
+            //
+            // ---------------------------------------------------------
+            // Identifier
+            // ---------------------------------------------------------
+            //
             Token::Identifier(name) => {
                 if state != ParserState::ExpectOperand {
                     return Err(ParseError::UnexpectedToken(Token::Identifier(name)));
@@ -84,26 +96,50 @@ fn shunting_yard(
 
                 if is_function {
                     operator_stack.push(OperableToken::Function { name });
-
-                    // The following '(' will establish the function
-                    // argument frame.
                 } else {
-                    output.push(PostfixToken::Operand(Token::Identifier(name)));
+                    output.push_back(PostfixToken::Operand(Token::Identifier(name)));
 
                     state = ParserState::ExpectOperator;
                 }
             }
 
-            // Operators
+            //
+            // ---------------------------------------------------------
+            // Operator
+            // ---------------------------------------------------------
+            //
             Token::Symbol(SymbolToken::Operator(op)) => {
-                if state != ParserState::ExpectOperator {
-                    return Err(ParseError::UnexpectedToken(op.into()));
-                }
+                let op = match state {
+                    //
+                    // +x or -x
+                    //
+                    ParserState::ExpectOperand => match op {
+                        OperatorToken::Plus => OperatorToken::UnaryPlus,
 
+                        OperatorToken::Minus => OperatorToken::UnaryMinus,
+
+                        _ => {
+                            return Err(ParseError::UnexpectedToken(Token::Symbol(
+                                SymbolToken::Operator(op),
+                            )));
+                        }
+                    },
+
+                    //
+                    // x + y or x - y
+                    //
+                    ParserState::ExpectOperator => op,
+                };
+
+                //
+                // Pop operators according to precedence and
+                // associativity.
+                //
                 while let Some(top) = operator_stack.last() {
                     let should_pop = match top {
                         OperableToken::Operator(top_op) => top_op.should_pop_before(&op),
 
+                        // Functions and parentheses form barriers.
                         OperableToken::Function { .. } | OperableToken::LeftParen { .. } => false,
                     };
 
@@ -113,7 +149,7 @@ fn shunting_yard(
 
                     match operator_stack.pop().unwrap() {
                         OperableToken::Operator(top_op) => {
-                            output.push(PostfixToken::Operator(top_op));
+                            output.push_back(PostfixToken::Operator(top_op));
                         }
 
                         _ => unreachable!(),
@@ -125,7 +161,11 @@ fn shunting_yard(
                 state = ParserState::ExpectOperand;
             }
 
+            //
+            // ---------------------------------------------------------
             // Left parenthesis
+            // ---------------------------------------------------------
+            //
             Token::Symbol(SymbolToken::Paren(Parenthesis::Left)) => {
                 if state != ParserState::ExpectOperand {
                     return Err(ParseError::UnexpectedToken(token));
@@ -140,19 +180,27 @@ fn shunting_yard(
                 });
             }
 
+            //
+            // ---------------------------------------------------------
             // Comma
+            // ---------------------------------------------------------
+            //
             Token::Symbol(SymbolToken::Comma) => {
-                // A comma must follow a complete argument.
+                //
+                // A comma must follow an expression.
+                //
                 if state != ParserState::ExpectOperator {
                     return Err(ParseError::UnexpectedComma);
                 }
 
-                // Pop operators belonging to the current argument.
+                //
+                // Pop operators belonging to this argument.
+                //
                 loop {
                     match operator_stack.last() {
                         Some(OperableToken::Operator(_)) => match operator_stack.pop().unwrap() {
                             OperableToken::Operator(op) => {
-                                output.push(PostfixToken::Operator(op));
+                                output.push_back(PostfixToken::Operator(op));
                             }
 
                             _ => unreachable!(),
@@ -168,13 +216,15 @@ fn shunting_yard(
                     }
                 }
 
-                // The comma must belong to a function call.
+                //
+                // The comma must be inside a function call.
+                //
                 match operator_stack.last_mut() {
                     Some(OperableToken::LeftParen {
                         is_function_call: true,
-                        argc: argument_count,
+                        argc,
                     }) => {
-                        *argument_count += 1;
+                        *argc += 1;
                     }
 
                     Some(OperableToken::LeftParen {
@@ -189,18 +239,23 @@ fn shunting_yard(
                     }
                 }
 
-                // A new argument must follow the comma.
                 state = ParserState::ExpectOperand;
             }
 
+            //
+            // ---------------------------------------------------------
             // Right parenthesis
+            // ---------------------------------------------------------
+            //
             Token::Symbol(SymbolToken::Paren(Parenthesis::Right)) => {
-                // First, pop operators until we reach '('.
+                //
+                // Pop operators until '('.
+                //
                 loop {
                     match operator_stack.last() {
                         Some(OperableToken::Operator(_)) => match operator_stack.pop().unwrap() {
                             OperableToken::Operator(op) => {
-                                output.push(PostfixToken::Operator(op));
+                                output.push_back(PostfixToken::Operator(op));
                             }
 
                             _ => unreachable!(),
@@ -216,7 +271,9 @@ fn shunting_yard(
                     }
                 }
 
-                // Now the top of the stack must be '('.
+                //
+                // Remove '('.
+                //
                 let left_paren = operator_stack.pop().unwrap();
 
                 let (is_function_call, mut argc) = match left_paren {
@@ -228,43 +285,36 @@ fn shunting_yard(
                     _ => unreachable!(),
                 };
 
-                // If this is a function call, validate the argument state
-                // and resolve its final argument count.
                 if is_function_call {
-                    match state {
-                        //
-                        // f(1)
-                        // f(1, 2)
-                        //
-                        ParserState::ExpectOperator => {
-                            argc += 1;
-                        }
-
-                        //
-                        // f(1,)
-                        // f(1,2,)
-                        //
-                        ParserState::ExpectOperand if argc > 0 => {
-                            // This is a valid trailing comma.
-                        }
-
-                        //
-                        // f()
-                        // f(,)
-                        //
-                        ParserState::ExpectOperand => {
-                            return Err(ParseError::UnexpectedToken(Token::Symbol(
-                                SymbolToken::Paren(Parenthesis::Right),
-                            )));
-                        }
+                    //
+                    // f() is invalid.
+                    //
+                    if state == ParserState::ExpectOperand && argc == 0 {
+                        return Err(ParseError::UnexpectedToken(Token::Symbol(
+                            SymbolToken::Paren(Parenthesis::Right),
+                        )));
                     }
 
                     //
-                    // The Function must immediately precede its '('.
+                    // f(1,2)
                     //
+                    // The final argument wasn't followed by a comma,
+                    // so count it here.
+                    //
+                    if state == ParserState::ExpectOperator {
+                        argc += 1;
+                    }
+
+                    //
+                    // f(1,)
+                    //
+                    // In ExpectOperand with argc > 0,
+                    // this is the allowed trailing comma.
+                    //
+
                     match operator_stack.pop() {
                         Some(OperableToken::Function { name }) => {
-                            output.push(PostfixToken::Function { name, argc });
+                            output.push_back(PostfixToken::Function { name, argc });
                         }
 
                         _ => {
@@ -273,8 +323,7 @@ fn shunting_yard(
                     }
                 } else {
                     //
-                    // A normal grouping parenthesis cannot be closed while
-                    // we're still expecting an operand.
+                    // A normal '(' must contain an expression.
                     //
                     if state != ParserState::ExpectOperator {
                         return Err(ParseError::UnexpectedToken(Token::Symbol(
@@ -288,16 +337,20 @@ fn shunting_yard(
         }
     }
 
+    //
     // An expression cannot end while expecting an operand.
+    //
     if state == ParserState::ExpectOperand {
         return Err(ParseError::UnexpectedEndOfExpr);
     }
 
-    // Drain the remaining operators.
+    //
+    // Drain remaining operators.
+    //
     while let Some(token) = operator_stack.pop() {
         match token {
             OperableToken::Operator(op) => {
-                output.push(PostfixToken::Operator(op));
+                output.push_back(PostfixToken::Operator(op));
             }
 
             OperableToken::Function { .. } | OperableToken::LeftParen { .. } => {
@@ -310,7 +363,119 @@ fn shunting_yard(
 }
 
 pub fn parse(raw: &String) -> Result<Expr, ParseError> {
-    parse_from_tokens(tokenize(raw)?)
+    parse_from_tokens(&mut tokenize(raw)?)
+}
+
+pub(crate) fn parse_from_tokens(
+    tokens: &mut impl Iterator<Item = Token>,
+) -> Result<Expr, ParseError> {
+    let mut postfix_tokens = shunting_yard(tokens)?.0;
+    let mut stack: Vec<Expr> = Vec::new();
+
+    while let Some(token) = postfix_tokens.pop_front() {
+        match token {
+            PostfixToken::Operand(token) => match token {
+                Token::Number(num) => stack.push(Expr::from(&num)),
+                Token::Identifier(ident) => stack.push(Expr::from(ident)),
+                Token::Symbol(_) => return Err(ParseError::UnexpectedToken(token)),
+            },
+            PostfixToken::Operator(op) => match op {
+                OperatorToken::Plus => apply_add(&mut stack)?,
+                OperatorToken::Minus => apply_minus(&mut stack)?,
+                OperatorToken::Star => apply_mul(&mut stack)?,
+                OperatorToken::Slash => apply_divide(&mut stack)?,
+                OperatorToken::Caret => apply_pow(&mut stack)?,
+                OperatorToken::UnaryPlus => {}
+                OperatorToken::UnaryMinus => apply_negate(&mut stack)?,
+            },
+            PostfixToken::Function { name, argc } => apply_func(&mut stack, name, argc)?,
+        }
+    }
+    Ok(stack.pop().ok_or(ParseError::MissingOperand)?)
+}
+
+fn apply_negate(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    let expr = Expr::Neg(Box::new(stack.pop().ok_or(ParseError::MissingOperand)?));
+    stack.push(expr);
+    Ok(())
+}
+
+fn apply_add(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    let rhs = stack.pop().ok_or(ParseError::MissingOperand)?;
+    let lhs = stack.pop().ok_or(ParseError::MissingOperand)?;
+    match (lhs, rhs) {
+        (Expr::Add(mut lhs), Expr::Add(mut rhs)) => {
+            lhs.extend(rhs);
+            stack.push(Expr::Add(lhs));
+        }
+        (Expr::Add(mut lhs), rhs) => {
+            lhs.push(rhs);
+            stack.push(Expr::Add(lhs))
+        }
+        (lhs, Expr::Add(mut rhs)) => {
+            rhs.push(lhs);
+            stack.push(Expr::Add(rhs));
+        }
+        (lhs, rhs) => stack.push(Expr::Add(vec![lhs, rhs])),
+    };
+    Ok(())
+}
+
+fn apply_minus(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    apply_negate(stack)?;
+    apply_add(stack)
+}
+
+fn apply_mul(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    let rhs = stack.pop().ok_or(ParseError::MissingOperand)?;
+    let lhs = stack.pop().ok_or(ParseError::MissingOperand)?;
+    match (lhs, rhs) {
+        (Expr::Mul(mut lhs), Expr::Mul(mut rhs)) => {
+            lhs.extend(rhs);
+            stack.push(Expr::Mul(lhs));
+        }
+        (Expr::Mul(mut lhs), rhs) => {
+            lhs.push(rhs);
+            stack.push(Expr::Mul(lhs))
+        }
+        (lhs, Expr::Mul(mut rhs)) => {
+            rhs.push(lhs);
+            stack.push(Expr::Mul(rhs));
+        }
+        (lhs, rhs) => stack.push(Expr::Mul(vec![lhs, rhs])),
+    };
+    Ok(())
+}
+
+fn apply_pow(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    let rhs = stack.pop().ok_or(ParseError::MissingOperand)?;
+    let lhs = stack.pop().ok_or(ParseError::MissingOperand)?;
+
+    stack.push(Expr::Pow(Box::new(lhs), Box::new(rhs)));
+    Ok(())
+}
+
+fn apply_reciprocate(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    let expr = Box::new(stack.pop().ok_or(ParseError::MissingOperand)?);
+    stack.push(Expr::Pow(
+        expr,
+        Box::new(Expr::Neg(Box::new(Expr::Integer(1)))),
+    ));
+    Ok(())
+}
+
+fn apply_divide(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
+    apply_reciprocate(stack)?;
+    apply_mul(stack)
+}
+
+fn apply_func(stack: &mut Vec<Expr>, name: String, arity: usize) -> Result<(), ParseError> {
+    let args = stack.split_off(stack.len().saturating_sub(arity));
+    stack.push(Expr::Call {
+        function: Symbol::create(name),
+        args,
+    });
+    Ok(())
 }
 
 #[cfg(test)]
@@ -405,9 +570,15 @@ mod tests {
     #[case("f(x)", vec![iden("x"), func("f", 1)])]
     #[case("sin(pi)", vec![iden("pi"), func("sin", 1)])]
     #[case("sin(0)", vec![int(0), func("sin", 1)])]
+    #[case("-1", vec![int(1), op(UnaryMinus)])]
+    #[case("--1", vec![int(1), op(UnaryMinus), op(UnaryMinus)])]
+    #[case("+1", vec![int(1), op(UnaryPlus)])]
+    #[case("-2^2", vec![int(2), int(2), op(Caret), op(UnaryMinus)])]
+    #[case("(-2)^2", vec![int(2), op(UnaryMinus), int(2), op(Caret)])]
+    #[case("2^(-3)", vec![int(2), int(3), op(UnaryMinus), op(Caret)])]
     fn test_shunting_yard(#[case] raw: &str, #[case] expected: Vec<PostfixToken>) {
         assert_eq!(
-            PostfixExpression(expected),
+            PostfixExpression(VecDeque::from(expected)),
             shunting_yard(&mut tokenize(&raw.to_string()).unwrap()).unwrap()
         )
     }
@@ -423,5 +594,61 @@ mod tests {
     #[case("x,y")]
     fn test_invalid_expr(#[case] raw: &str) {
         assert!(shunting_yard(&mut tokenize(&raw.to_string()).unwrap()).is_err())
+    }
+
+    fn e_int(n: u64) -> Expr {
+        Expr::Integer(n)
+    }
+    fn e_real(n: f64) -> Expr {
+        Expr::Real(n)
+    }
+    fn e_iden(s: &str) -> Expr {
+        e_func(s, &[])
+    }
+    fn neg(e: Expr) -> Expr {
+        Expr::Neg(Box::new(e))
+    }
+    fn pow(e1: Expr, e2: Expr) -> Expr {
+        Expr::Pow(Box::new(e1), Box::new(e2))
+    }
+    fn reciprocal(e: Expr) -> Expr {
+        pow(e, neg(e_int(1)))
+    }
+    fn add(es: &[Expr]) -> Expr {
+        Expr::Add(es.to_vec())
+    }
+    fn mul(es: &[Expr]) -> Expr {
+        Expr::Mul(es.to_vec())
+    }
+    fn e_func(ident: &str, args: &[Expr]) -> Expr {
+        Expr::Call {
+            function: Symbol::from(ident),
+            args: args.to_vec(),
+        }
+    }
+
+    #[rstest]
+    #[case("1", e_int(1))]
+    #[case("-1", neg(e_int(1)))]
+    #[case("(1)", e_int(1))]
+    #[case("(-1)", neg(e_int(1)))]
+    #[case("((1))", e_int(1))]
+    #[case("1+1", add(&[e_int(1), e_int(1)]))]
+    #[case("1+2+3", add(&[e_int(1), e_int(2), e_int(3)]))]
+    #[case("1-2+3", add(&[e_int(1), neg(e_int(2)), e_int(3)]))]
+    #[case("2*5", mul(&[e_int(2), e_int(5)]))]
+    #[case("2/5", mul(&[e_int(2), reciprocal(e_int(5))]))]
+    #[case("sin(x)", e_func("sin", &[e_iden("x")]))]
+    #[case("3.14159", e_real(3.14159))]
+    #[case("pi^2", pow(e_iden("pi"), e_int(2)))]
+    #[case("-2^2", neg(pow(e_int(2), e_int(2))))]
+    #[case("a^b * a^c", mul(&[pow(e_iden("a"), e_iden("b")), pow(e_iden("a"), e_iden("c"))]))]
+    #[case("a^(b+c)", pow(e_iden("a"), add(&[e_iden("b"), e_iden("c")])))]
+    #[case("0.5 - 0.5", add(&[e_real(0.5), neg(e_real(0.5))]))]
+    #[case("1 / 2 * 4", mul(&[e_int(1), reciprocal(e_int(2)), e_int(4)]))]
+    #[case("f(1+2, 3+4)", e_func("f", &[add(&[e_int(1), e_int(2)]), add(&[e_int(3), e_int(4)])]))]
+    #[case("f(x, y)", e_func("f", &[e_iden("x"), e_iden("y")]))]
+    fn test_parse(#[case] raw: &str, #[case] expected: Expr) {
+        assert_eq!(expected, parse(&raw.to_string()).unwrap())
     }
 }

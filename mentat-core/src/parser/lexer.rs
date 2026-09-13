@@ -89,28 +89,39 @@ pub(crate) enum OperatorToken {
     Star,  // *
     Slash, // /
     Caret, // ^
+
+    UnaryPlus,  // +
+    UnaryMinus, // -
 }
 
 impl OperatorToken {
-    pub(crate) fn precedence(&self) -> u8 {
-        use OperatorToken::*;
+    fn precedence(&self) -> u8 {
         match self {
-            Caret => 3,
-            Star | Slash => 2,
-            Plus | Minus => 1,
+            Self::Plus | Self::Minus => 1,
+            Self::Star | Self::Slash => 2,
+            Self::UnaryPlus | Self::UnaryMinus => 3,
+            Self::Caret => 4,
         }
     }
-    pub(crate) fn left_associative(&self) -> bool {
-        use OperatorToken::*;
+
+    fn left_associative(&self) -> bool {
         match self {
-            Plus | Minus | Star | Slash => true,
-            Caret => false,
+            Self::Caret | Self::UnaryPlus | Self::UnaryMinus => false,
+
+            Self::Plus | Self::Minus | Self::Star | Self::Slash => true,
         }
     }
 
     pub(crate) fn should_pop_before(&self, other: &OperatorToken) -> bool {
         self.precedence() > other.precedence()
             || (self.precedence() == other.precedence() && other.left_associative())
+    }
+    fn arity(&self) -> usize {
+        match self {
+            Self::UnaryPlus | Self::UnaryMinus => 1,
+
+            Self::Plus | Self::Minus | Self::Star | Self::Slash | Self::Caret => 2,
+        }
     }
 }
 
