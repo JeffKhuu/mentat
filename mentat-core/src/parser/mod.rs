@@ -3,6 +3,6 @@ The goal of the parser should be to take a string of user input and eventually p
 */
 
 mod lexer;
-pub mod numerical_string;
+pub mod normalizer;
+pub(crate) mod numerical_string;
 pub mod parser;
-

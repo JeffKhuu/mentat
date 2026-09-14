@@ -9,7 +9,7 @@ An identifier is an alphabetic string of one or more characters
 all other symbols are invalid
 */
 
-use std::{fmt::Display, iter::Peekable, str::Chars};
+use std::{iter::Peekable, str::Chars};
 
 use regex::Regex;
 use thiserror::Error;
@@ -33,15 +33,19 @@ pub(crate) enum Token {
     Symbol(SymbolToken),
 }
 
-impl From<OperatorToken> for Token {
-    fn from(value: OperatorToken) -> Self {
-        Token::Symbol(SymbolToken::Operator(value))
+impl ToString for Token {
+    fn to_string(&self) -> String {
+        match self {
+            Token::Number(numerical_string) => numerical_string.to_string(),
+            Token::Identifier(s) => s.to_string(),
+            Token::Symbol(symbol_token) => symbol_token.to_string(),
+        }
     }
 }
 
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+impl From<OperatorToken> for Token {
+    fn from(value: OperatorToken) -> Self {
+        Token::Symbol(SymbolToken::Operator(value))
     }
 }
 
@@ -50,6 +54,16 @@ pub(crate) enum SymbolToken {
     Operator(OperatorToken),
     Comma,
     Paren(Parenthesis),
+}
+
+impl ToString for SymbolToken {
+    fn to_string(&self) -> String {
+        match self {
+            Operator(operator_token) => operator_token.to_string(),
+            SymbolToken::Comma => String::from(","),
+            SymbolToken::Paren(parenthesis) => parenthesis.to_string(),
+        }
+    }
 }
 
 impl TryFrom<&char> for SymbolToken {
@@ -116,11 +130,16 @@ impl OperatorToken {
         self.precedence() > other.precedence()
             || (self.precedence() == other.precedence() && other.left_associative())
     }
-    fn arity(&self) -> usize {
-        match self {
-            Self::UnaryPlus | Self::UnaryMinus => 1,
+}
 
-            Self::Plus | Self::Minus | Self::Star | Self::Slash | Self::Caret => 2,
+impl ToString for OperatorToken {
+    fn to_string(&self) -> String {
+        match self {
+            OperatorToken::Plus | OperatorToken::UnaryPlus => String::from("+"),
+            OperatorToken::Minus | OperatorToken::UnaryMinus => String::from("-"),
+            OperatorToken::Star => String::from("*"),
+            OperatorToken::Slash => String::from("/"),
+            OperatorToken::Caret => String::from("^"),
         }
     }
 }
@@ -147,6 +166,15 @@ pub(crate) enum Parenthesis {
     Right, // )
 }
 
+impl ToString for Parenthesis {
+    fn to_string(&self) -> String {
+        match self {
+            Parenthesis::Left => String::from("("),
+            Parenthesis::Right => String::from(")"),
+        }
+    }
+}
+
 impl TryFrom<&char> for Parenthesis {
     type Error = TokenizationError;
 
@@ -160,7 +188,7 @@ impl TryFrom<&char> for Parenthesis {
 }
 
 #[derive(Debug, Error)]
-pub(crate) enum TokenizationError {
+pub enum TokenizationError {
     #[error("Unexpected symbol '{0}'.")]
     UnexpectedSymbol(char),
 }

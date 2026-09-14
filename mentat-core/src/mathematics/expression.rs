@@ -1,4 +1,4 @@
-use std::fmt::{Display, write};
+use std::fmt::Display;
 
 use crate::{mathematics::symbol::Symbol, parser::numerical_string::NumericalString};
 

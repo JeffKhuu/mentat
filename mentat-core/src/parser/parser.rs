@@ -16,13 +16,13 @@ use crate::{
 pub enum ParseError {
     #[error("Failed to tokenize expression: {0}")]
     TokenizationError(#[from] TokenizationError),
-    #[error("Unexpected Operator: {0}.")]
-    UnexpectedToken(Token),
+    #[error("Unexpected token: {0}.")]
+    UnexpectedToken(String),
     #[error("Unexpected end of expression.")]
     UnexpectedEndOfExpr,
     #[error("Unexpected comma.")]
     UnexpectedComma,
-    #[error("Mismatched Parentheses.")]
+    #[error("Mismatched parentheses.")]
     MismatchedParentheses,
     #[error("Missing operand during parse.")]
     MissingOperand,
@@ -72,7 +72,7 @@ fn shunting_yard(
             //
             Token::Number(_) => {
                 if state != ParserState::ExpectOperand {
-                    return Err(ParseError::UnexpectedToken(token));
+                    return Err(ParseError::UnexpectedToken(token.to_string()));
                 }
 
                 output.push_back(PostfixToken::Operand(token));
@@ -86,7 +86,7 @@ fn shunting_yard(
             //
             Token::Identifier(name) => {
                 if state != ParserState::ExpectOperand {
-                    return Err(ParseError::UnexpectedToken(Token::Identifier(name)));
+                    return Err(ParseError::UnexpectedToken(name));
                 }
 
                 let is_function = matches!(
@@ -119,9 +119,7 @@ fn shunting_yard(
                         OperatorToken::Minus => OperatorToken::UnaryMinus,
 
                         _ => {
-                            return Err(ParseError::UnexpectedToken(Token::Symbol(
-                                SymbolToken::Operator(op),
-                            )));
+                            return Err(ParseError::UnexpectedToken(op.to_string()));
                         }
                     },
 
@@ -168,7 +166,7 @@ fn shunting_yard(
             //
             Token::Symbol(SymbolToken::Paren(Parenthesis::Left)) => {
                 if state != ParserState::ExpectOperand {
-                    return Err(ParseError::UnexpectedToken(token));
+                    return Err(ParseError::UnexpectedToken(token.to_string()));
                 }
 
                 let is_function_call =
@@ -290,9 +288,7 @@ fn shunting_yard(
                     // f() is invalid.
                     //
                     if state == ParserState::ExpectOperand && argc == 0 {
-                        return Err(ParseError::UnexpectedToken(Token::Symbol(
-                            SymbolToken::Paren(Parenthesis::Right),
-                        )));
+                        return Err(ParseError::UnexpectedToken(String::from(")")));
                     }
 
                     //
@@ -326,9 +322,7 @@ fn shunting_yard(
                     // A normal '(' must contain an expression.
                     //
                     if state != ParserState::ExpectOperator {
-                        return Err(ParseError::UnexpectedToken(Token::Symbol(
-                            SymbolToken::Paren(Parenthesis::Right),
-                        )));
+                        return Err(ParseError::UnexpectedToken(String::from(")")));
                     }
                 }
 
@@ -377,7 +371,7 @@ pub(crate) fn parse_from_tokens(
             PostfixToken::Operand(token) => match token {
                 Token::Number(num) => stack.push(Expr::from(&num)),
                 Token::Identifier(ident) => stack.push(Expr::from(ident)),
-                Token::Symbol(_) => return Err(ParseError::UnexpectedToken(token)),
+                Token::Symbol(_) => return Err(ParseError::UnexpectedToken(token.to_string())),
             },
             PostfixToken::Operator(op) => match op {
                 OperatorToken::Plus => apply_add(&mut stack)?,
@@ -404,7 +398,7 @@ fn apply_add(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
     let rhs = stack.pop().ok_or(ParseError::MissingOperand)?;
     let lhs = stack.pop().ok_or(ParseError::MissingOperand)?;
     match (lhs, rhs) {
-        (Expr::Add(mut lhs), Expr::Add(mut rhs)) => {
+        (Expr::Add(mut lhs), Expr::Add(rhs)) => {
             lhs.extend(rhs);
             stack.push(Expr::Add(lhs));
         }
@@ -430,7 +424,7 @@ fn apply_mul(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
     let rhs = stack.pop().ok_or(ParseError::MissingOperand)?;
     let lhs = stack.pop().ok_or(ParseError::MissingOperand)?;
     match (lhs, rhs) {
-        (Expr::Mul(mut lhs), Expr::Mul(mut rhs)) => {
+        (Expr::Mul(mut lhs), Expr::Mul(rhs)) => {
             lhs.extend(rhs);
             stack.push(Expr::Mul(lhs));
         }

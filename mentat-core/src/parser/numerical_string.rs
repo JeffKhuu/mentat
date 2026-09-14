@@ -5,7 +5,7 @@ use regex::Regex;
 /// NumericalString is a string that can only represent strings that are valid numbers.
 /// Ex. "123", "14.5", "3.14151"
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct NumericalString(String);
+pub struct NumericalString(String);
 
 impl ToString for NumericalString {
     fn to_string(&self) -> String {
