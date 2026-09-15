@@ -10,6 +10,13 @@ An expression in canonicalized form will follow these rules:
 - Identity operations will be simplified
 */
 
+/*
+TODO:
+- We can use a zero-sized type abstraction to ensure our expressions are normalized in the type system (See PhantomData<State> pattern)
+- These NormalizationRules are complicated on flattened expressions, we need a number of helper functions in Expr to keep the code here straight forward
+- We should define a number of basic operations on expressions (+, -, /, *, ^) so that the logic and assumptions we make on them are centralized (i.e what does Expr + Expr look like for all types of Expr?)
+*/
+
 use crate::mathematics::expression::Expr;
 
 pub(crate) trait NormalizationRule {
