@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::{mathematics::symbol::Symbol, parser::numerical_string::NumericalString};
+use crate::{
+    mathematics::symbol::Symbol,
+    parser::{normalizer::Normalizer, numerical_string::NumericalString},
+};
 
 /**
 Mentat's core expression type
@@ -29,6 +32,32 @@ pub enum Expr {
 
     // Functional Expression
     Call { function: Symbol, args: Vec<Expr> },
+}
+
+impl Expr {
+    pub fn normalize(self, normalizer: &Normalizer) -> Self {
+        match self {
+            Expr::Integer(_) => normalizer.apply_rules(self),
+            Expr::Real(_) => normalizer.apply_rules(self),
+            Expr::Add(exprs) => {
+                normalizer.apply_rules(Expr::Add(normalizer.apply_rules_vec(exprs)))
+            }
+            Expr::Mul(exprs) => {
+                normalizer.apply_rules(Expr::Mul(normalizer.apply_rules_vec(exprs)))
+            }
+            Expr::Pow(expr, expr1) => normalizer.apply_rules(Expr::Pow(
+                Box::new(normalizer.apply_rules(*expr)),
+                Box::new(normalizer.apply_rules(*expr1)),
+            )),
+            Expr::Neg(expr) => {
+                normalizer.apply_rules(Expr::Neg(Box::new(normalizer.apply_rules(*expr))))
+            }
+            Expr::Call { function, args } => normalizer.apply_rules(Expr::Call {
+                function,
+                args: normalizer.apply_rules_vec(args),
+            }),
+        }
+    }
 }
 
 impl Display for Expr {
