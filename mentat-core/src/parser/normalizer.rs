@@ -70,6 +70,21 @@ fn sort_callable(mut exprs: Vec<Expr>) -> Vec<Expr> {
     symbols
 }
 
+pub struct NormalizeMultIdentityRule;
+impl NormalizationRule for NormalizeMultIdentityRule {
+    fn apply(&self, expr: Expr) -> Expr {
+        match expr {
+            Expr::Real(1.0) => Expr::Integer(1),
+            Expr::Pow(base, pow) => match *base {
+                Expr::Integer(1) => Expr::Integer(1),
+                Expr::Real(1.0) => Expr::Integer(1),
+                _ => Expr::Pow(base, pow)
+            },
+            _ => expr,
+        }
+    }
+}
+
 pub struct AdditiveIdentityRule;
 impl NormalizationRule for AdditiveIdentityRule {
     fn apply(&self, expr: Expr) -> Expr {
@@ -285,6 +300,11 @@ mod tests {
     #[case("g+a+20", "a+g+20", SortedRule{})]
     #[case("x+y+5+10", "x+y+5+10", SortedRule{})]
     #[case("b+a+5+10", "a+b+5+10", SortedRule{})]
+    #[case("1.0", "1", NormalizeMultIdentityRule{})]
+    #[case("1.0^10", "1", NormalizeMultIdentityRule{})]
+    #[case("1^2", "1", NormalizeMultIdentityRule{})]
+    #[case("1", "1", NormalizeMultIdentityRule{})]
+    #[case("2", "2", NormalizeMultIdentityRule{})]
     fn test_single_rule(
         #[case] expr_str: &str,
         #[case] expected_str: &str,
