@@ -2,6 +2,7 @@
 The goal of the parser should be to take a string of user input and eventually produce a Mentat-valid expression
 */
 
+mod new_lexer;
 mod lexer;
 pub mod normalizer;
 pub(crate) mod numerical_string;
