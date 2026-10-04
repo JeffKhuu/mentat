@@ -19,14 +19,73 @@ TODO:
 
 use crate::mathematics::expression::Expr;
 
-pub(crate) trait NormalizationRule {
+pub trait NormalizationRule {
     /**
     apply will apply the normalization rule to the given expression.
     */
     fn apply(&self, expr: Expr) -> Expr;
 }
 
-struct AdditiveIdentityRule;
+pub struct SortedRule;
+impl NormalizationRule for SortedRule {
+    fn apply(&self, expr: Expr) -> Expr {
+        match expr {
+            Expr::Add(exprs) => Expr::Add(sort_callable(exprs)),
+            Expr::Mul(exprs) => Expr::Mul(sort_callable(exprs)),
+            _ => expr,
+        }
+    }
+}
+
+fn sort_callable(mut exprs: Vec<Expr>) -> Vec<Expr> {
+    let mut symbols: Vec<Expr> = exprs
+        .extract_if(.., |expr| {
+            matches!(
+                expr,
+                Expr::Call {
+                    function: _,
+                    args: _
+                }
+            )
+        })
+        .collect();
+    symbols.sort_by(|a, b| {
+        let Expr::Call {
+            function: function_a,
+            args: _,
+        } = a
+        else {
+            unreachable!();
+        };
+        let Expr::Call {
+            function: function_b,
+            args: _,
+        } = b
+        else {
+            unreachable!();
+        };
+        function_a.cmp(&function_b)
+    });
+    symbols.append(&mut exprs);
+    symbols
+}
+
+pub struct NormalizeMultIdentityRule;
+impl NormalizationRule for NormalizeMultIdentityRule {
+    fn apply(&self, expr: Expr) -> Expr {
+        match expr {
+            Expr::Real(1.0) => Expr::Integer(1),
+            Expr::Pow(base, pow) => match *base {
+                Expr::Integer(1) => Expr::Integer(1),
+                Expr::Real(1.0) => Expr::Integer(1),
+                _ => Expr::Pow(base, pow)
+            },
+            _ => expr,
+        }
+    }
+}
+
+pub struct AdditiveIdentityRule;
 impl NormalizationRule for AdditiveIdentityRule {
     fn apply(&self, expr: Expr) -> Expr {
         if let Expr::Add(exprs) = expr {
@@ -51,7 +110,7 @@ impl NormalizationRule for AdditiveIdentityRule {
     }
 }
 
-struct MultiplicativeIdentityRule;
+pub struct MultiplicativeIdentityRule;
 impl NormalizationRule for MultiplicativeIdentityRule {
     fn apply(&self, expr: Expr) -> Expr {
         if let Expr::Mul(exprs) = expr {
@@ -75,7 +134,7 @@ impl NormalizationRule for MultiplicativeIdentityRule {
     }
 }
 
-struct ConstantFoldRule;
+pub struct ConstantFoldRule;
 impl NormalizationRule for ConstantFoldRule {
     fn apply(&self, expr: Expr) -> Expr {
         match expr {
@@ -156,9 +215,6 @@ impl NormalizationRule for ConstantFoldRule {
                         },
                         _ => unreachable!(),
                     });
-                dbg!(real_prod);
-                dbg!(int_prod);
-                dbg!(neg);
                 let expr = if real_prod == 1.0 {
                     if neg {
                         Expr::Neg(Box::new(Expr::Integer(int_prod)))
@@ -186,6 +242,26 @@ impl NormalizationRule for ConstantFoldRule {
             }
             expr => expr,
         }
+    }
+}
+
+pub struct Normalizer {
+    rules: Vec<Box<dyn NormalizationRule>>,
+}
+
+impl Normalizer {
+    pub fn create(rules: Vec<Box<dyn NormalizationRule>>) -> Normalizer {
+        Normalizer { rules }
+    }
+
+    pub(crate) fn apply_rules(&self, expr: Expr) -> Expr {
+        self.rules.iter().fold(expr, |expr, rule| rule.apply(expr))
+    }
+    pub(crate) fn apply_rules_vec(&self, exprs: Vec<Expr>) -> Vec<Expr> {
+        exprs
+            .into_iter()
+            .map(|expr| self.apply_rules(expr))
+            .collect()
     }
 }
 
@@ -218,6 +294,17 @@ mod tests {
     #[case("((x*2) + 0) + 0", "x*2", AdditiveIdentityRule {})]
     #[case("((x+2) * 1) * 1", "x+2", MultiplicativeIdentityRule {})]
     #[case("((x*2) * 1) * 1", "x*2", MultiplicativeIdentityRule {})]
+    #[case("x+y+z", "x+y+z", SortedRule{})]
+    #[case("z+y+x", "x+y+z", SortedRule{})]
+    #[case("a+b+15", "a+b+15", SortedRule{})]
+    #[case("g+a+20", "a+g+20", SortedRule{})]
+    #[case("x+y+5+10", "x+y+5+10", SortedRule{})]
+    #[case("b+a+5+10", "a+b+5+10", SortedRule{})]
+    #[case("1.0", "1", NormalizeMultIdentityRule{})]
+    #[case("1.0^10", "1", NormalizeMultIdentityRule{})]
+    #[case("1^2", "1", NormalizeMultIdentityRule{})]
+    #[case("1", "1", NormalizeMultIdentityRule{})]
+    #[case("2", "2", NormalizeMultIdentityRule{})]
     fn test_single_rule(
         #[case] expr_str: &str,
         #[case] expected_str: &str,
