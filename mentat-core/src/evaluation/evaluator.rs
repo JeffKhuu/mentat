@@ -48,17 +48,9 @@ impl<'env> Evaluator<'env> {
                     Ok(acc * self.evaluate(expr)?)
                 })
             }
-
             Expr::Pow(expr, expr1) => Ok(self.evaluate(*expr)?.pow(self.evaluate(*expr1)?)),
             Expr::Neg(expr) => Ok(Expr::Neg(Box::new(self.evaluate(*expr)?))),
-            // function needs to be refactored to be a SYMBOL,
             Expr::Call { function, args } => {
-                // Create an extended EvalEnv with the variable definitions
-                // evaluate the function's expression within that environmnet
-                // return the resulting expression
-
-                // Handle the atomic case where x is just a number
-
                 let func = self
                     .env
                     .get(&function)
