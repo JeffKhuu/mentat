@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq, Clone, Eq, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Eq, Ord, PartialOrd, Hash)]
 pub struct Symbol(String);
 
 impl Symbol {
