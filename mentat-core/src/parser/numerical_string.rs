@@ -18,6 +18,16 @@ impl From<i64> for NumericalString {
         NumericalString(value.to_string())
     }
 }
+impl From<u32> for NumericalString {
+    fn from(value: u32) -> Self {
+        NumericalString(value.to_string())
+    }
+}
+impl From<i32> for NumericalString {
+    fn from(value: i32) -> Self {
+        NumericalString(value.to_string())
+    }
+}
 impl From<f64> for NumericalString {
     fn from(value: f64) -> Self {
         NumericalString(value.to_string())

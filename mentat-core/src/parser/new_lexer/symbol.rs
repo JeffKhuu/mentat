@@ -4,7 +4,7 @@ pub(crate) enum Symbol {
     Minus,                    // -
     Star,                     // *
     Slash,                    // /
-    Parentheses(Parantheses), // ( )
+    Parentheses(Parentheses), // ( )
     Angle(Angle),             // < >
     Brackets(Brackets),       // [ ]
     Braces(Braces),           // { }
@@ -16,7 +16,7 @@ pub(crate) enum Symbol {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Parantheses {
+pub(crate) enum Parentheses {
     Open,   // (
     Closed, // )
 }

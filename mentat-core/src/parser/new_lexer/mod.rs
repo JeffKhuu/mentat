@@ -14,7 +14,7 @@ An Identifier Token is a token which can represent a value for an external envir
 
 /*
 Further, a Symbolic Token can be a Operator, Delimiter or Annotation
-- An Operator Symbol should classify symbols that will perform operations. For example '+', '-', '/', '^', '!', '&', '|', '<', '>', '<=', '>=', '=', '!='
+- An Operator Symbol should classify symbols that will perform operations. For example '+', '-', '*', '/', '^', '!', '&', '|', '<', '>', '<=', '>=', '=', '!='
 - An Delimiter Symbol should classify symbols that will be used to delimit groupings. For example '(', ')', '<', '>', '{', '}'
 - An Annotation Symbol should classify symbols that will be used to describe or modify statements. For example '->', '=>', ':', ':=', ','
 
@@ -35,13 +35,13 @@ pub(crate) enum TokenKind {
     Identifying(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Span {
     start: usize, // Inclusive
     end: usize,   // Exclusive
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Token {
     kind: TokenKind,
     span: Span,
