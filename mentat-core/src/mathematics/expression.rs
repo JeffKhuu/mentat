@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    mathematics::symbol::Symbol,
+    mathematics::symbol::Identifier,
     parser::{normalizer::Normalizer, numerical_string::NumericalString},
 };
 
@@ -34,7 +34,7 @@ pub enum Expr {
     Neg(Box<Expr>),
 
     // Functional Expression
-    Call { function: Symbol, args: Vec<Expr> },
+    Call { function: Identifier, args: Vec<Expr> },
 }
 
 impl Expr {
@@ -62,7 +62,7 @@ impl Expr {
         }
     }
 
-    pub fn symbols(&self) -> Vec<Symbol> {
+    pub fn symbols(&self) -> Vec<Identifier> {
         let mut symbols = vec![];
 
         match self {
@@ -210,7 +210,7 @@ impl From<String> for Expr {
             return Self::from(&s);
         }
         Expr::Call {
-            function: Symbol::create(value),
+            function: Identifier::new(value),
             args: vec![],
         }
     }

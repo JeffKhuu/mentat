@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use crate::mathematics::{expression::Expr, function::Function, symbol::Symbol};
+use crate::mathematics::{expression::Expr, function::Function, symbol::Identifier};
 
 /**
 An EvalulationEnvironment (EvalEnv) represents a set of definitions required to evaluate an expression
 */
 #[derive(Debug)]
 pub struct EvalEnv<'env> {
-    definitions: HashMap<&'env Symbol, Function>,
+    definitions: HashMap<&'env Identifier, Function>,
     parent: Option<&'env EvalEnv<'env>>,
 }
 
@@ -21,15 +21,15 @@ impl EvalEnv<'_> {
 }
 
 impl<'env> EvalEnv<'env> {
-    pub fn set(&mut self, symbol: &'env Symbol, expr: Expr) {
+    pub fn set(&mut self, symbol: &'env Identifier, expr: Expr) {
         self.definitions.insert(symbol, expr.into());
     }
 
-    pub fn set_fn(&mut self, symbol: &'env Symbol, function: Function) {
+    pub fn set_fn(&mut self, symbol: &'env Identifier, function: Function) {
         self.definitions.insert(symbol, function);
     }
 
-    pub fn get(&self, symbol: &Symbol) -> Option<&Function> {
+    pub fn get(&self, symbol: &Identifier) -> Option<&Function> {
         if let Some(val) = self.definitions.get(symbol) {
             return Some(val);
         }

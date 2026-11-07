@@ -1,7 +1,7 @@
 use mentat_core::{
     self,
     evaluation::{environment::EvalEnv, evaluator::Evaluator},
-    mathematics::{expression::Expr, symbol::Symbol},
+    mathematics::{expression::Expr, symbol::Identifier},
     parser::{
         normalizer::{
             AdditiveIdentityRule, ConstantFoldRule, MultiplicativeIdentityRule, NormalizationRule,
@@ -29,7 +29,7 @@ pub(crate) fn evaluate_and_print(line: String) -> () {
     let normalizer = Normalizer::create(rules);
 
     let mut env = EvalEnv::new();
-    let sym_f: Symbol = Symbol::from("f");
+    let sym_f: Identifier = Identifier::from("f");
     let expr_f: Expr = parse(&"x^2".to_string()).expect("Failed to parse f");
     env.set(&sym_f, expr_f);
     let evaluator = Evaluator::new(&env);

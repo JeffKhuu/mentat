@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::{
     evaluation::environment::EvalEnv,
-    mathematics::{expression::Expr, function::FunctionError, symbol::Symbol},
+    mathematics::{expression::Expr, function::FunctionError, symbol::Identifier},
 };
 
 pub struct Evaluator<'env> {
@@ -14,12 +14,12 @@ pub enum EvaluationError {
     #[error("Found an empty expression where one was expected.")]
     EmptyExpression,
     #[error("Error occured with symbol '{0}'. {1}")]
-    FunctionError(Symbol, FunctionError),
+    FunctionError(Identifier, FunctionError),
     #[error("Found an unknown symbol, '{0}'. Please define '{0}' to use it in expressions.")]
-    UnknownSymbol(Symbol),
+    UnknownSymbol(Identifier),
     #[error("The function '{symbol}' expects {expected} arguments but {found} was given.")]
     BadArity {
-        symbol: Symbol,
+        symbol: Identifier,
         expected: usize,
         found: usize,
     },
@@ -103,7 +103,7 @@ mod tests {
     fn test_evaluate_functions(#[case] expr: &str, #[case] expected: &str) {
         use crate::{
             evaluation::{environment::EvalEnv, evaluator::Evaluator},
-            mathematics::symbol::Symbol,
+            mathematics::symbol::Identifier,
             parser::parser::parse,
         };
 
@@ -111,7 +111,7 @@ mod tests {
         let expected = parse(&expected.to_string()).expect("Failed to parse expected");
 
         let mut env = EvalEnv::new();
-        let sym = Symbol::from("f");
+        let sym = Identifier::from("f");
         env.set(
             &sym,
             parse(&String::from("x+2")).expect("Failed to parse function f"),

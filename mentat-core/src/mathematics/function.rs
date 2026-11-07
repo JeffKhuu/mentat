@@ -2,13 +2,13 @@ use thiserror::Error;
 
 use crate::{
     evaluation::environment::EvalEnv,
-    mathematics::{expression::Expr, symbol::Symbol},
+    mathematics::{expression::Expr, symbol::Identifier},
 };
 
 #[derive(Debug)]
 pub struct Function {
     pub expr: Expr,
-    parameters: Vec<Symbol>,
+    parameters: Vec<Identifier>,
 }
 
 #[derive(Debug, Error)]

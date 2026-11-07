@@ -35,7 +35,7 @@ impl<'a> Lexer<'a> {
         Self { chars, input }
     }
 
-    fn tokenize(mut self) -> Result<Vec<Token>, LexError> {
+    pub fn tokenize(mut self) -> Result<Vec<Token>, LexError> {
         let mut tokens = Vec::new();
         while let Some(&char_indice) = self.chars.peek() {
             // char_indice is (usize, char)
@@ -59,6 +59,7 @@ impl<'a> Lexer<'a> {
                     tokens.push(self.consume_symbol(sym)?)
                 }
                 ',' => tokens.push(self.consume_symbol(TokenKind::Symbolic(Symbol::Comma))?),
+                ':' => tokens.push(self.colon()?),
                 c => return Err(LexError::Unexpected(c)),
             }
         }
@@ -143,6 +144,19 @@ impl<'a> Lexer<'a> {
                 span: Span { start, end },
             })
         }
+    }
+
+    fn colon(&mut self) -> Result<Token, LexError> {
+        let start = self.position();
+        self.chars.next();
+        if self.consume('=') {
+            let end = self.position();
+            return Ok(Token {
+                kind: TokenKind::Symbolic(Symbol::Assignment),
+                span: Span { start, end },
+            });
+        }
+        Err(LexError::Unexpected(':'))
     }
 
     fn consume_symbol(&mut self, token: TokenKind) -> Result<Token, LexError> {

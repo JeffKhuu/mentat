@@ -1,22 +1,22 @@
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Clone, Eq, Ord, PartialOrd, Hash)]
-pub struct Symbol(String);
+pub struct Identifier(String);
 
-impl Symbol {
-    pub fn create(s: String) -> Symbol {
-        Symbol(s)
+impl Identifier {
+    pub fn new(s: String) -> Identifier {
+        Identifier(s)
     }
 }
 
-impl Display for Symbol {
+impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{0}", self.0)
     }
 }
 
-impl From<&str> for Symbol {
+impl From<&str> for Identifier {
     fn from(value: &str) -> Self {
-        Symbol::create(value.to_string())
+        Identifier::new(value.to_string())
     }
 }

@@ -23,6 +23,8 @@ Since symbolic tokens can be ambiguous ('<' as operator vs. '<' as open angle br
 Raw String -> Tokens -> ContextualizedTokens -> Statements
 */
 
+use std::fmt::Display;
+
 use crate::parser::{new_lexer::symbol::Symbol, numerical_string::NumericalString};
 
 pub mod lexer;
@@ -37,12 +39,28 @@ pub(crate) enum TokenKind {
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Span {
-    start: usize, // Inclusive
-    end: usize,   // Exclusive
+    pub start: usize, // Inclusive
+    pub end: usize,   // Exclusive
 }
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Token {
-    kind: TokenKind,
-    span: Span,
+    pub kind: TokenKind,
+    pub span: Span,
+}
+
+impl Into<String> for &TokenKind {
+    fn into(self) -> String {
+        match self {
+            TokenKind::Numeric(numerical_string) => numerical_string.to_string(),
+            TokenKind::Symbolic(symbol) => (symbol).into(),
+            TokenKind::Identifying(iden) => iden.to_string(),
+        }
+    }
+}
+
+impl Into<String> for &Token {
+    fn into(self) -> String {
+        (&self.kind).into()
+    }
 }

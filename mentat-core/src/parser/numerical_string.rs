@@ -13,6 +13,12 @@ impl ToString for NumericalString {
     }
 }
 
+impl Into<String> for NumericalString {
+    fn into(self) -> String {
+        self.0
+    }
+}
+
 impl From<i64> for NumericalString {
     fn from(value: i64) -> Self {
         NumericalString(value.to_string())
