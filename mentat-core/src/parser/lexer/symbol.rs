@@ -1,3 +1,5 @@
+use std::{fmt::Display, write};
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum Symbol {
     Plus,                     // +
@@ -56,6 +58,13 @@ impl Into<String> for &Symbol {
             Symbol::ThinArrow => String::from("->"),
             Symbol::FatArrow => String::from("=>"),
         }
+    }
+}
+
+impl Display for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s: String = self.into();
+        write!(f, "{s}")
     }
 }
 

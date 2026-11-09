@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::parser::{
-    new_lexer::{
+    lexer::{
         Span, Token, TokenKind,
         symbol::{Parentheses, Symbol},
     },
@@ -186,9 +186,9 @@ mod tests {
     use rstest::*;
 
     #[cfg(test)]
-    use crate::parser::new_lexer::Token;
+    use crate::parser::lexer::Token;
     use crate::parser::{
-        new_lexer::{
+        lexer::{
             Span, TokenKind,
             lexer::Lexer,
             symbol::{Parentheses, Symbol},

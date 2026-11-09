@@ -1,7 +1,9 @@
 use std::{
     fmt::Display,
-    ops::{Add, Mul},
+    ops::{Add, Mul, Sub},
 };
+
+use thiserror::Error;
 
 use crate::{
     mathematics::symbol::Identifier,
@@ -34,7 +36,10 @@ pub enum Expr {
     Neg(Box<Expr>),
 
     // Functional Expression
-    Call { function: Identifier, args: Vec<Expr> },
+    Call {
+        function: Identifier,
+        args: Vec<Expr>,
+    },
 }
 
 impl Expr {
@@ -124,6 +129,52 @@ impl Add for Expr {
     }
 }
 
+impl Sub for Expr {
+    type Output = Expr;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Expr::Integer(n), Expr::Integer(m)) => {
+                if n > m {
+                    Expr::Integer(n - m)
+                } else {
+                    Expr::Neg(Box::new(Expr::Integer(m - n)))
+                }
+            }
+            (Expr::Real(n), Expr::Integer(m)) => {
+                if n > m as f64 {
+                    Expr::Real(n - m as f64)
+                } else {
+                    Expr::Neg(Box::new(Expr::Real(m as f64 - n)))
+                }
+            }
+            (Expr::Integer(n), Expr::Real(m)) => {
+                if n as f64 > m {
+                    Expr::Real(n as f64 - m)
+                } else {
+                    Expr::Neg(Box::new(Expr::Real(m - n as f64)))
+                }
+            }
+            (Expr::Real(n), Expr::Real(m)) => {
+                if n > m {
+                    Expr::Real(n - m)
+                } else {
+                    Expr::Neg(Box::new(Expr::Real(m - n)))
+                }
+            }
+            (Expr::Add(mut terms), expr) => {
+                terms.push(Expr::Neg(Box::new(expr)));
+                Expr::Add(terms)
+            }
+            (expr, Expr::Add(mut terms)) => {
+                terms.insert(0, Expr::Neg(Box::new(expr)));
+                Expr::Add(terms)
+            }
+            (lhs, rhs) => Expr::Add(vec![lhs, Expr::Neg(Box::new(rhs))]),
+        }
+    }
+}
+
 impl Mul for Expr {
     type Output = Expr;
 
@@ -142,6 +193,28 @@ impl Mul for Expr {
                 Expr::Mul(terms)
             }
             (lhs, rhs) => Expr::Mul(vec![lhs, rhs]),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ExprError {
+    #[error("Failed to narrow \"{0}\" into identifier")]
+    IdentifierNarrowingError(Expr),
+}
+
+impl TryInto<Identifier> for Expr {
+    type Error = ExprError;
+
+    fn try_into(self) -> Result<Identifier, Self::Error> {
+        match self {
+            Expr::Integer(_)
+            | Expr::Real(_)
+            | Expr::Add(_)
+            | Expr::Mul(_)
+            | Expr::Pow(_, _)
+            | Expr::Neg(_) => Err(ExprError::IdentifierNarrowingError(self)),
+            Expr::Call { function, .. } => Ok(function),
         }
     }
 }
@@ -226,13 +299,17 @@ mod tests {
     #[case("1.0", "2", "3.0")]
     #[case("3.14", "3.14", "6.28")]
     fn test_add(#[case] lhs: &str, #[case] rhs: &str, #[case] expected: &str) {
-        use crate::parser::parser::parse;
+        use crate::{lang::statement::Statement::Expression, parser::parse};
 
         let lhs = parse(&lhs.to_string()).unwrap();
         let rhs = parse(&rhs.to_string()).unwrap();
+
         let expected = parse(&expected.to_string()).unwrap();
 
-        assert_eq!(expected, lhs + rhs)
+        match (lhs, rhs) {
+            (Expression(lhs), Expression(rhs)) => assert_eq!(expected, Expression(lhs + rhs)),
+            _ => assert!(false),
+        }
     }
 
     #[rstest]
@@ -242,12 +319,15 @@ mod tests {
     #[case("1.0", "2", "2.0")]
     #[case("3.14", "3.14", "9.8596")]
     fn test_mul(#[case] lhs: &str, #[case] rhs: &str, #[case] expected: &str) {
-        use crate::parser::parser::parse;
+        use crate::{lang::statement::Statement::Expression, parser::parse};
 
         let lhs = parse(&lhs.to_string()).unwrap();
         let rhs = parse(&rhs.to_string()).unwrap();
         let expected = parse(&expected.to_string()).unwrap();
 
-        assert_eq!(expected, lhs * rhs)
+        match (lhs, rhs) {
+            (Expression(lhs), Expression(rhs)) => assert_eq!(expected, Expression(lhs * rhs)),
+            _ => assert!(false),
+        }
     }
 }

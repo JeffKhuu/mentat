@@ -11,4 +11,4 @@ unary -> "-" unary | primary
 primary -> NUMBER | IDENTIFIER | "(" expresssion ")"
 */
 
-pub mod parser;
+pub(crate) mod parser;

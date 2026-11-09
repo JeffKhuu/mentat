@@ -25,16 +25,45 @@ Raw String -> Tokens -> ContextualizedTokens -> Statements
 
 use std::fmt::Display;
 
-use crate::parser::{new_lexer::symbol::Symbol, numerical_string::NumericalString};
+use crate::{
+    parser::{lexer::symbol::Symbol, numerical_string::NumericalString},
+};
 
 pub mod lexer;
-pub(crate) mod symbol;
+pub mod symbol;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum TokenKind {
     Numeric(NumericalString),
     Symbolic(Symbol),
     Identifying(String),
+}
+
+#[derive(Debug)]
+pub(crate) enum TokenPattern {
+    Numeric,
+    Identifying,
+    Symbol(Symbol),
+}
+
+impl Display for TokenPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenPattern::Numeric => write!(f, "number"),
+            TokenPattern::Identifying => write!(f, "identifier"),
+            TokenPattern::Symbol(symbol) => write!(f, "{symbol}"),
+        }
+    }
+}
+
+impl Into<String> for TokenPattern {
+    fn into(self) -> String {
+        match self {
+            TokenPattern::Numeric => String::from("number"),
+            TokenPattern::Identifying => String::from("identifier"),
+            TokenPattern::Symbol(symbol) => (&symbol).into(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,5 +91,15 @@ impl Into<String> for &TokenKind {
 impl Into<String> for &Token {
     fn into(self) -> String {
         (&self.kind).into()
+    }
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenKind::Numeric(numerical_string) => write!(f, "{numerical_string}"),
+            TokenKind::Symbolic(symbol) => write!(f, "{symbol}"),
+            TokenKind::Identifying(identifier) => write!(f, "{identifier}"),
+        }
     }
 }
