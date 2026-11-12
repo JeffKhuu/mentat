@@ -17,6 +17,8 @@ pub enum EvaluationError {
     FunctionError(Identifier, FunctionError),
     #[error("Found an unknown symbol, '{0}'. Please define '{0}' to use it in expressions.")]
     UnknownSymbol(Identifier),
+    #[error("Division by zero is undefined.")]
+    DivisionByZero,
     #[error("The function '{symbol}' expects {expected} arguments but {found} was given.")]
     BadArity {
         symbol: Identifier,
@@ -49,10 +51,23 @@ impl<'env> Evaluator<'env> {
                 let mut exprs = exprs.into_iter();
                 let first = exprs.next().ok_or(EvaluationError::EmptyExpression)?;
                 exprs.try_fold(self.evaluate(first)?, |acc, expr| {
-                    Ok(acc * self.evaluate(expr)?)
+                    match expr {
+                        Expr::Pow(base, power) => {
+                            match *power {
+                                Expr::Neg(power) => acc / self.evaluate(*base)?.pow(self.evaluate(*power)?),
+                                _ => Ok(acc * self.evaluate(*base)?.pow(self.evaluate(*power)?))
+                            }
+                        },
+                        _ => Ok(acc * self.evaluate(expr)?),
+
+                    }
                 })
             }
-            Expr::Pow(expr, expr1) => Ok(self.evaluate(*expr)?.pow(self.evaluate(*expr1)?)),
+            Expr::Pow(expr, expr1) => {
+                match *expr1 {
+                    _ => Ok(self.evaluate(*expr)?.pow(self.evaluate(*expr1)?))
+                }
+            },
             Expr::Neg(expr) => {
                 Ok(Expr::Neg(Box::new(self.evaluate(*expr)?)))
             },

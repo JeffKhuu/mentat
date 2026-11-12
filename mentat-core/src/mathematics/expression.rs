@@ -1,11 +1,12 @@
 use std::{
     fmt::Display,
-    ops::{Add, Mul, Sub},
+    ops::{Add, Div, Mul, Sub},
 };
 
 use thiserror::Error;
 
 use crate::{
+    evaluation::evaluator::EvaluationError,
     mathematics::symbol::Identifier,
     parser::{normalizer::Normalizer, numerical_string::NumericalString},
 };
@@ -193,6 +194,49 @@ impl Mul for Expr {
                 Expr::Mul(terms)
             }
             (lhs, rhs) => Expr::Mul(vec![lhs, rhs]),
+        }
+    }
+}
+
+impl Div for Expr {
+    type Output = Result<Expr, EvaluationError>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Expr::Integer(numerator), Expr::Integer(denominator)) => {
+                if denominator == 0 {
+                    return Err(EvaluationError::DivisionByZero);
+                };
+                if numerator % denominator == 0 {
+                    return Ok(Expr::Integer(numerator / denominator));
+                }
+                Ok(Expr::Real(numerator as f64 / denominator as f64))
+            }
+            (Expr::Real(numerator), Expr::Real(denominator)) => {
+                if denominator == 0.0 {
+                    return Err(EvaluationError::DivisionByZero);
+                };
+                Ok(Expr::Real(numerator / denominator))
+            }
+            (Expr::Integer(numerator), Expr::Real(denominator)) => {
+                if denominator == 0.0 {
+                    return Err(EvaluationError::DivisionByZero);
+                };
+                Ok(Expr::Real(numerator as f64 / denominator))
+            }
+            (Expr::Real(numerator), Expr::Integer(denominator)) => {
+                if denominator == 0 {
+                    return Err(EvaluationError::DivisionByZero);
+                };
+                Ok(Expr::Real(numerator / denominator as f64))
+            }
+            (lhs, rhs) => {
+                let denominator = Expr::Pow(
+                    Box::new(rhs),
+                    Box::new(Expr::Neg(Box::new(Expr::Integer(1)))),
+                );
+                Ok(Expr::Mul(vec![lhs, denominator]))
+            }
         }
     }
 }
