@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::{
     evaluation::environment::EvalEnv,
-    mathematics::{expression::Expr, function::FunctionError, symbol::Symbol},
+    mathematics::{expression::Expr, function::FunctionError, symbol::Identifier},
 };
 
 pub struct Evaluator<'env> {
@@ -14,12 +14,12 @@ pub enum EvaluationError {
     #[error("Found an empty expression where one was expected.")]
     EmptyExpression,
     #[error("Error occured with symbol '{0}'. {1}")]
-    FunctionError(Symbol, FunctionError),
+    FunctionError(Identifier, FunctionError),
     #[error("Found an unknown symbol, '{0}'. Please define '{0}' to use it in expressions.")]
-    UnknownSymbol(Symbol),
+    UnknownSymbol(Identifier),
     #[error("The function '{symbol}' expects {expected} arguments but {found} was given.")]
     BadArity {
-        symbol: Symbol,
+        symbol: Identifier,
         expected: usize,
         found: usize,
     },
@@ -38,7 +38,11 @@ impl<'env> Evaluator<'env> {
                 let mut exprs = exprs.into_iter();
                 let first = exprs.next().ok_or(EvaluationError::EmptyExpression)?;
                 exprs.try_fold(self.evaluate(first)?, |acc, expr| {
-                    Ok(acc + self.evaluate(expr)?)
+                    let rhs = self.evaluate(expr)?;
+                    match rhs {
+                        Expr::Neg(e) => Ok(acc - *e),
+                        _ => Ok(acc + rhs)
+                    }
                 })
             }
             Expr::Mul(exprs) => {
@@ -49,7 +53,9 @@ impl<'env> Evaluator<'env> {
                 })
             }
             Expr::Pow(expr, expr1) => Ok(self.evaluate(*expr)?.pow(self.evaluate(*expr1)?)),
-            Expr::Neg(expr) => Ok(Expr::Neg(Box::new(self.evaluate(*expr)?))),
+            Expr::Neg(expr) => {
+                Ok(Expr::Neg(Box::new(self.evaluate(*expr)?)))
+            },
             Expr::Call { function, args } => {
                 let func = self
                     .env
@@ -77,14 +83,16 @@ mod tests {
     #[case("100.0+10000", "10100.0")]
     #[case("2^3", "8")]
     #[case("2.0^3", "8.0")]
+    #[case("70-2*3", "64")]
+    #[case("70-(3*2)", "64")]
     fn test_evaluate(#[case] expr: &str, #[case] expected: &str) {
         use crate::{
             evaluation::{environment::EvalEnv, evaluator::Evaluator},
-            parser::parser::parse,
+            parser::parse_expr,
         };
 
-        let expr = parse(&expr.to_string()).expect("Failed to parse expression");
-        let expected = parse(&expected.to_string()).expect("Failed to parse expected");
+        let expr = parse_expr(&expr.to_string()).expect("Failed to parse expression");
+        let expected = parse_expr(&expected.to_string()).expect("Failed to parse expected");
 
         let env = EvalEnv::new();
         let evaluator = Evaluator::new(&env);
@@ -103,18 +111,18 @@ mod tests {
     fn test_evaluate_functions(#[case] expr: &str, #[case] expected: &str) {
         use crate::{
             evaluation::{environment::EvalEnv, evaluator::Evaluator},
-            mathematics::symbol::Symbol,
-            parser::parser::parse,
+            mathematics::symbol::Identifier,
+            parser::parse_expr,
         };
 
-        let expr = parse(&expr.to_string()).expect("Failed to parse expression");
-        let expected = parse(&expected.to_string()).expect("Failed to parse expected");
+        let expr = parse_expr(&expr.to_string()).expect("Failed to parse expression");
+        let expected = parse_expr(&expected.to_string()).expect("Failed to parse expected");
 
         let mut env = EvalEnv::new();
-        let sym = Symbol::from("f");
+        let sym = Identifier::from("f");
         env.set(
             &sym,
-            parse(&String::from("x+2")).expect("Failed to parse function f"),
+            parse_expr(&String::from("x+2")).expect("Failed to parse function f"),
         );
         let evaluator = Evaluator::new(&env);
 

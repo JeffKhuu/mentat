@@ -1,6 +1,7 @@
 pub mod evaluation;
 pub mod mathematics;
 pub mod parser;
+pub mod lang;
 
 #[cfg(test)]
 mod tests {

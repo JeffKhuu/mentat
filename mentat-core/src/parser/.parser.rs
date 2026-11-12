@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 use thiserror::Error;
 
 use crate::{
-    mathematics::{expression::Expr, symbol::Symbol},
+    mathematics::{expression::Expr, symbol::Identifier},
     parser::lexer::*,
 };
 
@@ -466,7 +466,7 @@ fn apply_divide(stack: &mut Vec<Expr>) -> Result<(), ParseError> {
 fn apply_func(stack: &mut Vec<Expr>, name: String, arity: usize) -> Result<(), ParseError> {
     let args = stack.split_off(stack.len().saturating_sub(arity));
     stack.push(Expr::Call {
-        function: Symbol::create(name),
+        function: Identifier::new(name),
         args,
     });
     Ok(())
@@ -616,7 +616,7 @@ mod tests {
     }
     fn e_func(ident: &str, args: &[Expr]) -> Expr {
         Expr::Call {
-            function: Symbol::from(ident),
+            function: Identifier::from(ident),
             args: args.to_vec(),
         }
     }

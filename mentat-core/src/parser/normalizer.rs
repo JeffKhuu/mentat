@@ -269,7 +269,7 @@ impl Normalizer {
 mod tests {
     use crate::parser::{
         normalizer::{NormalizationRule, *},
-        parser::parse,
+        parse_expr
     };
     use rstest::*;
     #[rstest]
@@ -277,6 +277,7 @@ mod tests {
     #[case("x+1+2+3", "x+6", ConstantFoldRule {})]
     #[case("x+100-50", "x+50", ConstantFoldRule {})]
     #[case("(x+5)+1+100", "x+106", ConstantFoldRule {})]
+    #[case("60-2*3", "54", ConstantFoldRule {})]
     #[case("x*1*2*3*4*5*6", "x*720", ConstantFoldRule {})]
     #[case("r+2.0+2.5+2.75", "r+7.25", ConstantFoldRule {})]
     #[case("r*0.5*0.5", "r*0.25", ConstantFoldRule {})]
@@ -310,7 +311,7 @@ mod tests {
         #[case] expected_str: &str,
         #[case] rule: impl NormalizationRule,
     ) {
-        let expected = parse(&expected_str.to_string()).unwrap();
-        assert_eq!(expected, rule.apply(parse(&expr_str.to_string()).unwrap()))
+        let expected = parse_expr(&expected_str.to_string()).unwrap();
+        assert_eq!(expected, rule.apply(parse_expr(&expr_str.to_string()).unwrap()))
     }
 }
